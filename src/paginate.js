@@ -40,7 +40,7 @@ function measureHeight(headerHtml, blocksHtml, showPhotos, photoCount, fontScale
   const el = getMeasureEl();
   el.style.setProperty('--ufont', fontScale);
   const photosHtml = showPhotos
-    ? `<div class="photo-gallery">${Array.from({ length: photoCount }).map(() => '<div style="width:100%;height:180px;"></div>').join('')}</div>`
+    ? `<div class="photo-gallery">${Array.from({ length: photoCount }).map(() => '<div style="width:100%;height:160px;"></div>').join('')}</div>`
     : '';
   el.innerHTML =
     `<div class="case-slide-head">${headerHtml}</div>` +
