@@ -138,10 +138,14 @@ export default function Present({ cases }) {
   }
 
   // Printing forces the browser out of fullscreen for the print dialog and doesn't
-  // restore it afterward — re-request it once the dialog closes.
+  // restore it afterward — re-request it once the dialog closes, and return to
+  // Slide View since that's where the export controls live.
   useEffect(() => {
     function onAfterPrint() {
-      if (mode === 'presenting') document.documentElement.requestFullscreen?.().catch(() => {});
+      if (mode === 'presenting') {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        setSubView('slide');
+      }
     }
     window.addEventListener('afterprint', onAfterPrint);
     return () => window.removeEventListener('afterprint', onAfterPrint);
@@ -245,8 +249,12 @@ export default function Present({ cases }) {
             </div>
           </div>
           <div className="toolbar-right">
-            <button className="pill" onClick={exportPptx} disabled={exporting}>{exporting ? 'Building…' : 'Export PPTX'}</button>
-            <button className="pill" onClick={printToPdf}>Print / PDF</button>
+            {subView === 'slide' && (
+              <>
+                <button className="pill" onClick={exportPptx} disabled={exporting}>{exporting ? 'Building…' : 'Export PPTX'}</button>
+                <button className="pill" onClick={printToPdf}>Print / PDF</button>
+              </>
+            )}
             <button className="exitbtn" onClick={exitPresenting}>Exit ⎋</button>
           </div>
         </div>
