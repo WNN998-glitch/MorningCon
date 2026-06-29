@@ -128,24 +128,23 @@ export default function Present({ cases }) {
     document.documentElement.requestFullscreen?.().catch(() => {});
   }
   function printToPdf() {
-    setSubView('scroll');
-    setTimeout(() => {
-      window.scrollTo(0, 0);
-      const wrap = document.querySelector('.scroll-pages-wrap');
-      if (wrap) wrap.scrollTop = 0;
-      window.print();
-    }, 150);
+    window.dispatchEvent(new Event('resize'));
+    setTimeout(() => window.print(), 80);
   }
 
+  // Nudge the slide-fit measurement right as print media activates, since the
+  // print-only slide canvases are hidden (and unmeasured) until that moment.
+  useEffect(() => {
+    function onBeforePrint() { window.dispatchEvent(new Event('resize')); }
+    window.addEventListener('beforeprint', onBeforePrint);
+    return () => window.removeEventListener('beforeprint', onBeforePrint);
+  }, []);
+
   // Printing forces the browser out of fullscreen for the print dialog and doesn't
-  // restore it afterward — re-request it once the dialog closes, and return to
-  // Slide View since that's where the export controls live.
+  // restore it afterward — re-request it once the dialog closes.
   useEffect(() => {
     function onAfterPrint() {
-      if (mode === 'presenting') {
-        document.documentElement.requestFullscreen?.().catch(() => {});
-        setSubView('slide');
-      }
+      if (mode === 'presenting') document.documentElement.requestFullscreen?.().catch(() => {});
     }
     window.addEventListener('afterprint', onAfterPrint);
     return () => window.removeEventListener('afterprint', onAfterPrint);
@@ -172,43 +171,49 @@ export default function Present({ cases }) {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_16x9';
       const DARK='0A0D0F', TEXT='D7E0E0', ACCENT='E0A458', DIM='7D8C8C', ACCENT2='4FB8A8';
-      const sorted = [...cases].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+      const FULL_W = 9.2; // usable slide width in inches at LAYOUT_16x9, minus margins
 
-      if (sorted.length > 1) {
+      slides.forEach(slide => {
         const s = pres.addSlide(); s.background = { color: DARK };
-        s.addText('MORNING REPORT SUMMARY', { x:0.4,y:0.3,w:9.2,h:0.5,fontFace:'Courier New',fontSize:20,color:ACCENT,bold:true });
-        s.addText(new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'  ·  '+sorted.length+' cases',
-          { x:0.4,y:0.78,w:9.2,h:0.3,fontFace:'Courier New',fontSize:11,color:DIM });
-        const rows = [[
-          {text:'#',options:{color:ACCENT2,bold:true}},
-          {text:'HN',options:{color:ACCENT2,bold:true}},
-          {text:'Chief Complaint',options:{color:ACCENT2,bold:true}},
-          {text:'Diagnosis',options:{color:ACCENT2,bold:true}}
-        ]];
-        sorted.forEach((c,i)=>rows.push([String(i+1).padStart(2,'0'), c.hn||'', c.cc||'', c.dx||'—']));
-        s.addTable(rows, { x:0.4,y:1.25,w:9.2,fontFace:'Courier New',fontSize:11,color:TEXT,border:{type:'solid',color:'232B2F',pts:0.5},autoPage:false });
-      }
 
-      sorted.forEach((c,i)=>{
-        const s = pres.addSlide(); s.background = { color: DARK };
-        s.addText('CASE '+String(i+1).padStart(2,'0')+' / '+String(sorted.length).padStart(2,'0'),
-          { x:0.4,y:0.25,w:5,h:0.35,fontFace:'Courier New',fontSize:13,color:ACCENT,bold:true });
-        s.addText('HN '+(c.hn||''), { x:6.5,y:0.25,w:3.1,h:0.35,fontFace:'Courier New',fontSize:11,color:DIM,align:'right' });
+        if (slide.type === 'summary') {
+          s.addText('MORNING REPORT SUMMARY', { x:0.4,y:0.3,w:FULL_W,h:0.5,fontFace:'Courier New',fontSize:20*fontScale,color:ACCENT,bold:true });
+          s.addText(new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'  ·  '+slide.cases.length+' cases',
+            { x:0.4,y:0.78,w:FULL_W,h:0.3,fontFace:'Courier New',fontSize:11*fontScale,color:DIM });
+          const rows = [[
+            {text:'#',options:{color:ACCENT2,bold:true}},
+            {text:'HN',options:{color:ACCENT2,bold:true}},
+            {text:'Chief Complaint',options:{color:ACCENT2,bold:true}},
+            {text:'Diagnosis',options:{color:ACCENT2,bold:true}}
+          ]];
+          slide.cases.forEach((c,i)=>rows.push([String(i+1).padStart(2,'0'), c.hn||'', c.cc||'', c.dx||'—']));
+          s.addTable(rows, { x:0.4,y:1.25,w:FULL_W,fontFace:'Courier New',fontSize:11*fontScale,color:TEXT,border:{type:'solid',color:'232B2F',pts:0.5},autoPage:false });
+          return;
+        }
 
-        const blocks = [['CHIEF COMPLAINT',c.cc],['PRESENT ILLNESS',c.hpi],['PHYSICAL EXAMINATION',c.pe],['INVESTIGATION',c.inv],['DIAGNOSIS',c.dx],['MANAGEMENT',c.mgmt]].filter(b=>b[1]);
+        const c = slide.case;
+        const partLabel = slide.partTotal > 1 ? `  ·  PART ${slide.part}/${slide.partTotal}` : '';
+        s.addText(`CASE ${String(slide.index).padStart(2,'0')} / ${String(slide.total).padStart(2,'0')}${partLabel}`,
+          { x:0.4,y:0.25,w:6.5,h:0.35,fontFace:'Courier New',fontSize:13*fontScale,color:ACCENT,bold:true });
+        s.addText('HN '+(c.hn||''), { x:7,y:0.25,w:2.2,h:0.35,fontFace:'Courier New',fontSize:11*fontScale,color:DIM,align:'right' });
+
+        const textW = slide.showPhotos ? (FULL_W * colSplit / 100) - 0.15 : FULL_W;
         let y = 0.75;
-        const colW = (c.photos && c.photos.length) ? 5.6 : 9.2;
-        blocks.forEach(([label,val])=>{
-          const lines = Math.max(1, Math.ceil(val.length/70));
-          const h = Math.min(1.8, 0.32 + lines*0.18);
-          s.addText(label, { x:0.4,y:y,w:colW,h:0.22,fontFace:'Courier New',fontSize:9,color:ACCENT2,bold:true });
-          s.addText(val, { x:0.4,y:y+0.22,w:colW,h:h,fontFace:'Courier New',fontSize:11,color:label==='DIAGNOSIS'?ACCENT:TEXT,valign:'top' });
+        slide.blocks.forEach(b => {
+          const charsPerLine = Math.max(20, textW * 9);
+          const lines = Math.max(1, Math.ceil(b.val.length / charsPerLine));
+          const h = Math.min(2.2, (0.32 + lines * 0.18) * fontScale);
+          s.addText(b.label.toUpperCase(), { x:0.4,y,w:textW,h:0.22,fontFace:'Courier New',fontSize:9*fontScale,color:ACCENT2,bold:true });
+          s.addText(b.val, { x:0.4,y:y+0.22,w:textW,h,fontFace:'Courier New',fontSize:11*fontScale,color:b.label==='Diagnosis'?ACCENT:TEXT,valign:'top' });
           y += h + 0.3;
         });
-        if (c.photos && c.photos.length) {
+
+        if (slide.showPhotos && c.photos && c.photos.length) {
+          const photoX = 0.4 + textW + 0.2;
+          const photoW = FULL_W - textW - 0.2;
           let py = 0.75;
-          c.photos.slice(0,4).forEach(photo=>{
-            try { s.addImage({ data: photo, x:6.2, y:py, w:3.2, h:1.65 }); } catch(e){}
+          c.photos.slice(0, 4).forEach(photo => {
+            try { s.addImage({ data: photo, x: photoX, y: py, w: photoW, h: 1.65 }); } catch (e) {}
             py += 1.8;
           });
         }
@@ -286,6 +291,17 @@ export default function Present({ cases }) {
             <img src={lightbox} />
           </div>
         )}
+
+        {/* Hidden except when printing — mirrors Slide View exactly: same pagination
+            (parts), same font scale, same column split. This is what Export PPTX and
+            Print/PDF both draw from, so the export always matches what's on screen. */}
+        <div className="print-pages">
+          {slides.map((s, i) => (
+            <div className="print-page" key={i}>
+              <SlidePage slide={s} onPhotoClick={() => {}} colSplit={colSplit} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

@@ -97,14 +97,16 @@ button,input,textarea{font-family:'IBM Plex Mono',monospace;}
   .app{ max-width:none !important; padding:0 !important; margin:0 !important; }
   .view{ padding-top:0 !important; }
   #slideshow{ position:static !important; height:auto !important; overflow:visible !important; display:block !important; }
-  .scroll-pages-wrap{ position:static !important; flex:none !important; height:auto !important; overflow:visible !important; }
-  .scroll-pages{ padding:0; overflow:visible !important; }
-  .cv-page{
-    width:100%; max-width:none; padding:60px 80px; margin:0; min-height:0;
-    display:block; border-top:none !important;
+  .slide-stage, .slidebar, .scroll-pages-wrap{ display:none !important; }
+  .print-pages{ display:block !important; }
+  .print-page{
+    width:100vw; height:100vh; page-break-after:always; break-after:page;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
   }
-  .cv-page:not(:first-child){ page-break-before:always; break-before:page; padding-top:60px; }
+  .print-page:last-child{ page-break-after:auto; break-after:auto; }
 }
+
+.print-pages{ display:none; }
 
 #slideshow{position:fixed;inset:0;background:#08090a;z-index:999;display:flex;flex-direction:column;}
 .present-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:#0a0d0f;flex-shrink:0;}
