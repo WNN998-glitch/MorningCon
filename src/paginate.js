@@ -58,17 +58,52 @@ function fitsBudget(headerHtml, blocks, showPhotos, photoCount, fontScale, colSp
   return measureHeight(headerHtml, blocksHtml, showPhotos, photoCount, fontScale, colSplit) <= FIT_BUDGET;
 }
 
-// Finds the longest prefix of `text` such that `precedingBlocks` plus a block of
-// {label, val: prefix+'…'} still fits the budget. Returns 0 if not even one character fits.
-function maxFittingPrefix(headerHtml, precedingBlocks, label, text, showPhotos, photoCount, fontScale, colSplit) {
-  let lo = 0, hi = text.length, best = 0;
+// Finds the longest prefix of `text`, preferring whole-word boundaries, such that
+// `precedingBlocks` plus a block of {label, val: prefix+'…'} still fits the budget.
+// Falls back to character-level splitting only when a single token is itself too
+// long to fit (e.g. one giant unbroken run with no spaces).
+function splitToFit(headerHtml, precedingBlocks, label, text, showPhotos, photoCount, fontScale, colSplit) {
+  const fits = (val) => fitsBudget(headerHtml, [...precedingBlocks, { label, val: val || '…' }], showPhotos, photoCount, fontScale, colSplit);
+
+  // Word-boundary search first — keeps separators so rejoining is exact.
+  const tokens = text.split(/(\s+)/);
+  let lo = 0, hi = tokens.length, bestWords = 0;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    const candidate = mid < text.length ? text.slice(0, mid).trimEnd() + '…' : text.slice(0, mid);
-    const ok = fitsBudget(headerHtml, [...precedingBlocks, { label, val: candidate || '…' }], showPhotos, photoCount, fontScale, colSplit);
-    if (ok) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+    const joined = tokens.slice(0, mid).join('');
+    const candidate = mid < tokens.length ? joined.trimEnd() + '…' : joined;
+    if (fits(candidate)) { bestWords = mid; lo = mid + 1; } else { hi = mid - 1; }
   }
-  return best;
+
+  if (bestWords > 0) {
+    return {
+      fitText: tokens.slice(0, bestWords).join('').trimEnd(),
+      leftover: tokens.slice(bestWords).join('').trimStart(),
+    };
+  }
+
+  // Not even one whole word/token fits — the very first token is itself too long
+  // (e.g. one giant run with no spaces). Binary search characters within it.
+  const firstToken = tokens[0] || '';
+  let clo = 0, chi = firstToken.length, bestChars = 0;
+  while (clo <= chi) {
+    const cmid = (clo + chi) >> 1;
+    const candidate = cmid < firstToken.length ? firstToken.slice(0, cmid).trimEnd() + '…' : firstToken.slice(0, cmid);
+    if (fits(candidate)) { bestChars = cmid; clo = cmid + 1; } else { chi = cmid - 1; }
+  }
+  if (bestChars > 0) {
+    return {
+      fitText: firstToken.slice(0, bestChars).trimEnd(),
+      leftover: firstToken.slice(bestChars).trimStart() + tokens.slice(1).join(''),
+    };
+  }
+
+  // Genuinely nothing fits (pathological — e.g. font scale set absurdly high on an
+  // already-tiny budget). Force exactly one character through so we still make progress.
+  return {
+    fitText: (firstToken.slice(0, 1) || text.slice(0, 1)) + '…',
+    leftover: (firstToken.slice(1) || text.slice(1)) + tokens.slice(1).join(''),
+  };
 }
 
 // Splits one case's fields across as many pages as needed so each page's rendered
@@ -101,20 +136,18 @@ export function paginateCase(c, fontScale = 1, colSplit = 55) {
         consumedWhole = i + 1;
         continue;
       }
-      // Whole block doesn't fit — try fitting as much of its text as possible on this page.
-      const fitLen = maxFittingPrefix(headerHtml, chosen, block.label, block.val, showPhotos, photoCount, fontScale, colSplit);
-      if (fitLen > 0) {
-        chosen.push({ label: block.label, val: block.val.slice(0, fitLen).trimEnd() + '…' });
-        splitOverflow = { index: i, leftoverVal: block.val.slice(fitLen).trimStart() };
-      } else if (chosen.length === 0) {
-        // Nothing fits at all on an empty page (pathological case) — force at least
-        // half the text through so we always make forward progress.
-        const fallbackLen = Math.max(1, Math.floor(block.val.length / 2));
-        chosen.push({ label: block.label, val: block.val.slice(0, fallbackLen).trimEnd() + '…' });
-        splitOverflow = { index: i, leftoverVal: block.val.slice(fallbackLen).trimStart() };
+      // If something's already chosen and not even a sliver of this block fits
+      // alongside it, defer the whole block to the next page instead of cramming
+      // in an awkward one-character fragment.
+      if (chosen.length > 0 && !fitsBudget(headerHtml, [...chosen, { label: block.label, val: '…' }], showPhotos, photoCount, fontScale, colSplit)) {
+        break;
       }
-      // else: this block doesn't fit even partially alongside what's chosen — leave it
-      // entirely for the next page.
+
+      // Whole block doesn't fit — fit as much of its text as possible on this page,
+      // preferring whole-word breaks.
+      const { fitText, leftover } = splitToFit(headerHtml, chosen, block.label, block.val, showPhotos, photoCount, fontScale, colSplit);
+      chosen.push({ label: block.label, val: fitText });
+      splitOverflow = { index: i, leftoverVal: leftover };
       break;
     }
 
