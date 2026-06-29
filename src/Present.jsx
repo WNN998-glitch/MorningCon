@@ -101,9 +101,21 @@ export default function Present({ cases }) {
   const [exporting, setExporting] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [colSplit, setColSplit] = useState(55); // text column % (rest goes to photos)
+  const [theme, setTheme] = useState('dark'); // 'dark' | 'light'
   const touchX = useRef(null);
   const slides = useMemo(() => buildSlides(cases, fontScale, colSplit), [cases, fontScale, colSplit]);
   const continuousSlides = useMemo(() => buildContinuousSlides(cases), [cases]);
+
+  // Mirror the theme onto <body> too (not just #slideshow) — printing renders the
+  // body background directly, so this keeps the printed PDF matching what's on screen.
+  useEffect(() => {
+    if (mode === 'presenting') {
+      document.body.classList.toggle('theme-light', theme === 'light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+    return () => document.body.classList.remove('theme-light');
+  }, [theme, mode]);
 
   function adjustFont(delta) {
     setFontScale(s => Math.min(1.6, Math.max(0.6, +(s + delta).toFixed(2))));
@@ -170,7 +182,11 @@ export default function Present({ cases }) {
     try {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_16x9';
-      const DARK='0A0D0F', TEXT='D7E0E0', ACCENT='E0A458', DIM='7D8C8C', ACCENT2='4FB8A8';
+      const PALETTE = {
+        dark:  { DARK:'0A0D0F', TEXT:'D7E0E0', ACCENT:'E0A458', DIM:'7D8C8C', ACCENT2:'4FB8A8' },
+        light: { DARK:'F5F3EF', TEXT:'1B2220', ACCENT:'B5742A', DIM:'5B6663', ACCENT2:'2F8A7A' },
+      };
+      const { DARK, TEXT, ACCENT, DIM, ACCENT2 } = PALETTE[theme];
       const FULL_W = 9.2; // usable slide width in inches at LAYOUT_16x9, minus margins
 
       slides.forEach(slide => {
@@ -229,7 +245,7 @@ export default function Present({ cases }) {
 
   if (mode === 'presenting') {
     return (
-      <div id="slideshow" style={{ '--ufont': fontScale }}
+      <div id="slideshow" className={theme === 'light' ? 'theme-light' : ''} style={{ '--ufont': fontScale }}
         onTouchStart={e => touchX.current = e.touches[0].clientX}
         onTouchEnd={e => {
           if (touchX.current == null || subView !== 'slide') return;
@@ -252,6 +268,9 @@ export default function Present({ cases }) {
               <span>{colSplit}/{100-colSplit}</span>
               <button onClick={()=>adjustCols(5)} disabled={colSplit>=75} title="More room for text">▶</button>
             </div>
+            <button className="pill" onClick={()=>setTheme(t => t==='dark' ? 'light' : 'dark')} title="Toggle theme">
+              {theme === 'dark' ? '☾ Dark' : '☀ Light'}
+            </button>
           </div>
           <div className="toolbar-right">
             {subView === 'slide' && (
