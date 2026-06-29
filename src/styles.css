@@ -96,7 +96,9 @@ button,input,textarea{font-family:'IBM Plex Mono',monospace;}
   .no-print{ display:none !important; }
   .app{ max-width:none !important; padding:0 !important; margin:0 !important; }
   .view{ padding-top:0 !important; }
-  .scroll-pages{ padding:0; }
+  #slideshow{ position:static !important; height:auto !important; overflow:visible !important; display:block !important; }
+  .scroll-pages-wrap{ position:static !important; flex:none !important; height:auto !important; overflow:visible !important; }
+  .scroll-pages{ padding:0; overflow:visible !important; }
   .cv-page{
     width:100%; max-width:none; padding:60px 80px; margin:0; min-height:0;
     display:block; border-top:none !important;

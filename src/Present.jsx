@@ -129,7 +129,12 @@ export default function Present({ cases }) {
   }
   function printToPdf() {
     setSubView('scroll');
-    setTimeout(() => window.print(), 150);
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      const wrap = document.querySelector('.scroll-pages-wrap');
+      if (wrap) wrap.scrollTop = 0;
+      window.print();
+    }, 150);
   }
 
   // Printing forces the browser out of fullscreen for the print dialog and doesn't
