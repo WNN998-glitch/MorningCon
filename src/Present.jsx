@@ -3,6 +3,17 @@ import PptxGenJS from 'pptxgenjs';
 import { buildSlides, buildContinuousSlides, CANON_W, CANON_H } from './paginate.js';
 
 function SlideContent({ slide, onPhotoClick, colSplit = 55 }) {
+  if (slide.type === 'cover') {
+    const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return (
+      <div className="slide-cover">
+        <div className="cover-eyebrow">Morning Report</div>
+        <div className="cover-title">{slide.title}</div>
+        <div className="cover-date">{dateStr}</div>
+        <div className="cover-count">{slide.caseCount} {slide.caseCount === 1 ? 'case' : 'cases'}</div>
+      </div>
+    );
+  }
   if (slide.type === 'summary') {
     return (
       <div className="slide-summary">
@@ -100,11 +111,26 @@ export default function Present({ cases }) {
   const [lightbox, setLightbox] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [fontScale, setFontScale] = useState(1);
-  const [colSplit, setColSplit] = useState(55); // text column % (rest goes to photos)
-  const [theme, setTheme] = useState('dark'); // 'dark' | 'light'
+  const [colSplit, setColSplit] = useState(55);
+  const [theme, setTheme] = useState('dark');
+  const [coverTitle, setCoverTitle] = useState('');
   const touchX = useRef(null);
-  const slides = useMemo(() => buildSlides(cases, fontScale, colSplit), [cases, fontScale, colSplit]);
-  const continuousSlides = useMemo(() => buildContinuousSlides(cases), [cases]);
+
+  function makeCoverSlide(title, caseCount) {
+    return { type: 'cover', title: title.trim() || 'Morning Report', caseCount };
+  }
+
+  const slides = useMemo(() => {
+    const base = buildSlides(cases, fontScale, colSplit);
+    if (coverTitle !== null) return [makeCoverSlide(coverTitle, cases.length), ...base];
+    return base;
+  }, [cases, fontScale, colSplit, coverTitle]);
+
+  const continuousSlides = useMemo(() => {
+    const base = buildContinuousSlides(cases);
+    if (coverTitle !== null) return [makeCoverSlide(coverTitle, cases.length), ...base];
+    return base;
+  }, [cases, coverTitle]);
 
   // Mirror the theme onto <body> too (not just #slideshow) — printing renders the
   // body background directly, so this keeps the printed PDF matching what's on screen.
@@ -191,6 +217,15 @@ export default function Present({ cases }) {
 
       slides.forEach(slide => {
         const s = pres.addSlide(); s.background = { color: DARK };
+
+        if (slide.type === 'cover') {
+          const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          s.addText('MORNING REPORT', { x:0.4, y:2.2, w:FULL_W, h:0.4, fontFace:'Courier New', fontSize:14*fontScale, color:DIM, bold:false, align:'center', charSpacing:6 });
+          s.addText(slide.title, { x:0.4, y:2.7, w:FULL_W, h:1.4, fontFace:'Courier New', fontSize:38*fontScale, color:ACCENT, bold:true, align:'center' });
+          s.addText(dateStr, { x:0.4, y:4.3, w:FULL_W, h:0.35, fontFace:'Courier New', fontSize:13*fontScale, color:DIM, align:'center' });
+          s.addText(String(slide.caseCount) + (slide.caseCount === 1 ? ' case' : ' cases'), { x:0.4, y:4.75, w:FULL_W, h:0.3, fontFace:'Courier New', fontSize:11*fontScale, color:ACCENT2, align:'center' });
+          return;
+        }
 
         if (slide.type === 'summary') {
           s.addText('MORNING REPORT SUMMARY', { x:0.4,y:0.3,w:FULL_W,h:0.5,fontFace:'Courier New',fontSize:20*fontScale,color:ACCENT,bold:true });
@@ -329,6 +364,18 @@ export default function Present({ cases }) {
     <div>
       <div className="present-wrap">
         <span className="count-pill">{cases.length === 1 ? '1 case ready' : `${cases.length} cases ready`}</span>
+      </div>
+      <div className="cover-form">
+        <label className="cover-form-label">Cover Title</label>
+        <input
+          type="text"
+          className="cover-form-input"
+          value={coverTitle}
+          onChange={e => setCoverTitle(e.target.value)}
+          placeholder="e.g. Surgery Morning Report — Ward 4"
+          maxLength={80}
+        />
+        <div className="cover-form-hint">Appears as the first slide. Leave blank to show "Morning Report".</div>
       </div>
       <div className="present-actions">
         <button className="btn primary" onClick={startPresenting}>Start Presentation</button>

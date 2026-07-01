@@ -78,6 +78,20 @@ button,input,textarea{font-family:'IBM Plex Mono',monospace;}
 .hint{color:var(--text-dim);font-size:11.5px;text-align:center;margin-top:4px;}
 .present-wrap{text-align:center;margin-bottom:24px;}
 
+/* ---- cover form (idle present screen) ---- */
+.cover-form{max-width:480px;margin:0 auto 24px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+.cover-form-label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;}
+.cover-form-input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-size:14px;font-family:'IBM Plex Mono',monospace;}
+.cover-form-input:focus{outline:none;border-color:var(--accent-dim);}
+.cover-form-hint{font-size:11px;color:var(--text-dim);margin-top:8px;}
+
+/* ---- cover slide ---- */
+.slide-cover{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:0 60px;}
+.cover-eyebrow{font-size:calc(13px * var(--ufont));letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim);margin-bottom:18px;}
+.cover-title{font-size:calc(42px * var(--ufont));font-weight:700;color:var(--accent);line-height:1.2;margin-bottom:28px;letter-spacing:.02em;word-break:break-word;}
+.cover-date{font-size:calc(14px * var(--ufont));color:var(--text-dim);margin-bottom:8px;}
+.cover-count{font-size:calc(12px * var(--ufont));color:var(--accent-2);letter-spacing:.06em;}
+
 /* ---- scroll / print view ---- */
 .scrollbar-top{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:var(--bg);border-bottom:1px solid var(--border);}
 .scrollbar-top .left{display:flex;align-items:center;gap:14px;}
